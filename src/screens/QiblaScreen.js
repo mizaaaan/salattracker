@@ -97,9 +97,10 @@ export default function QiblaScreen() {
     }).start();
   }, [heading, qibla]);
 
-  const spin = animAngle.interpolate({
-    inputRange:  [currentAngle.current - 360, currentAngle.current + 360],
-    outputRange: [`${currentAngle.current - 360}deg`, `${currentAngle.current + 360}deg`],
+  // Interpolate the animated value to a degree string
+  const rotate = animAngle.interpolate({
+    inputRange:  [0, 360],
+    outputRange: ['0deg', '360deg'],
   });
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -124,8 +125,6 @@ export default function QiblaScreen() {
       </SafeAreaView>
     );
   }
-
-  const needleRotation = qibla !== null ? (qibla - heading + 360) % 360 : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -163,7 +162,7 @@ export default function QiblaScreen() {
           <Animated.View
             style={[
               styles.needleWrapper,
-              { transform: [{ rotate: `${needleRotation}deg` }] },
+              { transform: [{ rotate }] },
             ]}
           >
             <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
