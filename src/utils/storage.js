@@ -129,17 +129,28 @@ export const getStreakData = async () => {
  */
 export const getWeeklyData = async () => {
   const result = [];
+  const keys = [];
+  const dayNames = [];
+
   for (let i = 6; i >= 0; i--) {
     const d    = new Date();
     d.setDate(d.getDate() - i);
     const key  = d.toISOString().split('T')[0];
-    const done = await getCompletedPrayers(key);
+    keys.push(PRAYERS_PREFIX + key);
+    dayNames.push(d.toLocaleDateString('en', { weekday: 'short' }));
+  }
+
+  const pairs = await AsyncStorage.multiGet(keys);
+  
+  pairs.forEach(([fullKey, value], index) => {
+    const done = value ? JSON.parse(value) : [];
     result.push({
-      date:      key,
-      dayName:   d.toLocaleDateString('en', { weekday: 'short' }),
+      date:      fullKey.replace(PRAYERS_PREFIX, ''),
+      dayName:   dayNames[index],
       completed: done.length,
       allDone:   done.length >= 5,
     });
-  }
+  });
+
   return result;
 };
