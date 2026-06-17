@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Colors } from '../constants/colors';
+import { useTheme } from '../constants/ThemeContext';
 
 /**
  * Glowing card that shows the next prayer name + live countdown.
@@ -8,6 +8,8 @@ import { Colors } from '../constants/colors';
  * Props: name, time (formatted string), countdown ('HH:MM:SS'), meta
  */
 export default function NextPrayerBanner({ name, time, countdown, meta }) {
+  const { colors: Colors } = useTheme();
+  const styles = getStyles(Colors);
   const glow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function NextPrayerBanner({ name, time, countdown, meta }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors) => StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginVertical:   12,
