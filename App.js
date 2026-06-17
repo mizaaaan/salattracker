@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import HomeScreen from './src/screens/HomeScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
 import StreakScreen from './src/screens/StreakScreen';
-import { Colors } from './src/constants/colors';
+import { ThemeProvider, useTheme } from './src/constants/ThemeContext';
 
 // Handle notifications when app is in foreground
 Notifications.setNotificationHandler({
@@ -25,10 +25,26 @@ const TabIcon = ({ icon }) => (
   <Text style={{ fontSize: 22 }}>{icon}</Text>
 );
 
-export default function App() {
+function Navigation() {
+  const { colors: Colors, isDark } = useTheme();
+
+  // Feed our palette into React Navigation so screen backgrounds,
+  // headers, and the native back-swipe edge all match too.
+  const navTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: Colors.background,
+      card:       Colors.card,
+      border:     Colors.border,
+      text:       Colors.text,
+      primary:    Colors.primary,
+    },
+  };
+
   return (
-    <NavigationContainer>
-      <StatusBar style="light" />
+    <NavigationContainer theme={navTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
@@ -72,5 +88,13 @@ export default function App() {
         />
       </Tab.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <Navigation />
+    </ThemeProvider>
   );
 }
