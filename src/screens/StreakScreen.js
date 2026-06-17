@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   SafeAreaView, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { Colors } from '../constants/colors';
+import { useTheme } from '../constants/ThemeContext';
 import { getStreakData, getWeeklyData } from '../utils/storage';
 import { TRACKABLE_PRAYERS } from '../utils/prayerTimes';
 
@@ -25,13 +25,13 @@ const getStreakMessage = (n) => {
 };
 
 /** Single day cell in the weekly row */
-const DayCell = ({ dayName, completed, allDone }) => (
+const DayCell = ({ dayName, completed, allDone, styles }) => (
   <View style={styles.dayCol}>
     <Text style={styles.dayName}>{dayName}</Text>
     <View style={[styles.dayCircle, allDone && styles.dayCircleDone]}>
       {allDone
         ? <Text style={styles.dayCheck}>✓</Text>
-        : <Text style={[styles.dayCount, completed > 0 && { color: Colors.primary }]}>
+        : <Text style={[styles.dayCount, completed > 0 && styles.dayCountActive]}>
             {completed}
           </Text>
       }
@@ -40,7 +40,7 @@ const DayCell = ({ dayName, completed, allDone }) => (
 );
 
 /** Single stat chip */
-const StatCard = ({ value, label, icon }) => (
+const StatCard = ({ value, label, icon, styles }) => (
   <View style={styles.statCard}>
     <Text style={styles.statIcon}>{icon}</Text>
     <Text style={styles.statValue}>{value}</Text>
@@ -49,6 +49,9 @@ const StatCard = ({ value, label, icon }) => (
 );
 
 export default function StreakScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = getStyles(Colors);
+
   const [streak,  setStreak]  = useState({ currentStreak: 0, longestStreak: 0, totalDays: 0 });
   const [weekly,  setWeekly]  = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,9 +109,9 @@ export default function StreakScreen() {
 
         {/* ── Stat chips ───────────────────────────────────────────────── */}
         <View style={styles.statsRow}>
-          <StatCard value={streak.longestStreak}  label="Best Streak"    icon="🏆" />
-          <StatCard value={streak.totalDays}       label="Total Days"     icon="📅" />
-          <StatCard value={streak.totalDays * 5}   label="Prayers Done"   icon="🤲" />
+          <StatCard value={streak.longestStreak}  label="Best Streak"    icon="🏆" styles={styles} />
+          <StatCard value={streak.totalDays}       label="Total Days"     icon="📅" styles={styles} />
+          <StatCard value={streak.totalDays * 5}   label="Prayers Done"   icon="🤲" styles={styles} />
         </View>
 
         {/* ── Weekly calendar ──────────────────────────────────────────── */}
@@ -121,6 +124,7 @@ export default function StreakScreen() {
                 dayName={d.dayName}
                 completed={d.completed}
                 allDone={d.allDone}
+                styles={styles}
               />
             ))}
           </View>
@@ -130,19 +134,16 @@ export default function StreakScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Today — {todayDone}/5 complete</Text>
           <View style={styles.miniGrid}>
-            {TRACKABLE_PRAYERS.map((p) => {
-              const done = (todayData?.completed ?? 0) > TRACKABLE_PRAYERS.indexOf(p);
-              return (
-                <View
-                  key={p}
-                  style={[styles.miniPill, todayData?.allDone && styles.miniPillDone]}
-                >
-                  <Text style={[styles.miniPillText, todayData?.allDone && { color: Colors.primary }]}>
-                    {p}
-                  </Text>
-                </View>
-              );
-            })}
+            {TRACKABLE_PRAYERS.map((p) => (
+              <View
+                key={p}
+                style={[styles.miniPill, todayData?.allDone && styles.miniPillDone]}
+              >
+                <Text style={[styles.miniPillText, todayData?.allDone && styles.miniPillTextDone]}>
+                  {p}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -159,7 +160,7 @@ export default function StreakScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors) => StyleSheet.create({
   container: {
     flex:            1,
     backgroundColor: Colors.background,
@@ -284,6 +285,7 @@ const styles = StyleSheet.create({
   },
   dayCheck: { color: Colors.background, fontSize: 16, fontWeight: '800' },
   dayCount: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  dayCountActive: { color: Colors.primary },
 
   // Mini prayer pills
   miniGrid: {
@@ -308,6 +310,7 @@ const styles = StyleSheet.create({
     fontSize:   13,
     fontWeight: '500',
   },
+  miniPillTextDone: { color: Colors.primary },
 
   // Quote
   quoteCard: {

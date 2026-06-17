@@ -3,11 +3,10 @@ import {
   View, Text, StyleSheet, SafeAreaView,
   ActivityIndicator, Animated,
 } from 'react-native';
-import { Magnetometer } from 'expo-sensors';
 import * as Location from 'expo-location';
 import Svg, { Circle, Line, G, Path, Text as SvgText } from 'react-native-svg';
 
-import { Colors } from '../constants/colors';
+import { useTheme } from '../constants/ThemeContext';
 import { calculateQibla } from '../utils/prayerTimes';
 
 const SIZE   = 280;
@@ -15,7 +14,7 @@ const CENTER = SIZE / 2;
 const RADIUS = 126;
 
 /** Build tick marks for the compass ring */
-const Ticks = () => {
+const Ticks = ({ Colors }) => {
   const ticks = [];
   for (let i = 0; i < 72; i++) {
     const isMajor  = i % 9 === 0;
@@ -38,6 +37,9 @@ const Ticks = () => {
 };
 
 export default function QiblaScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = getStyles(Colors);
+
   const [heading,    setHeading]    = useState(0);
   const [qibla,      setQibla]      = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -46,9 +48,9 @@ export default function QiblaScreen() {
   const animAngle = useRef(new Animated.Value(0)).current;
   const currentAngle = useRef(0);
 
-  // ── Setup: location + magnetometer ────────────────────────────────────────
+  // ── Setup: location + compass heading ─────────────────────────────────────
   useEffect(() => {
-    let sub;
+    let headingSub;
 
     const init = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -63,18 +65,19 @@ export default function QiblaScreen() {
       setQibla(q);
       setLoading(false);
 
-      // Subscribe to magnetometer
-      await Magnetometer.setUpdateInterval(100);
-      sub = Magnetometer.addListener(({ x, y }) => {
-        // Convert magnetic field vector to compass heading (degrees from North)
-        let angle = Math.atan2(y, x) * (180 / Math.PI);
-        if (angle < 0) angle += 360;
-        setHeading(angle);
+      // Use the device's native compass heading (iOS Core Location) instead of
+      // computing it by hand from raw magnetometer x/y — that math is
+      // orientation/axis-convention dependent and was giving the wrong angle.
+      // trueHeading is corrected for magnetic declination using GPS; it reads
+      // -1 until that correction is ready, so fall back to magHeading then.
+      headingSub = await Location.watchHeadingAsync(({ trueHeading, magHeading }) => {
+        const h = trueHeading >= 0 ? trueHeading : magHeading;
+        setHeading(h);
       });
     };
 
     init();
-    return () => sub?.remove();
+    return () => headingSub?.remove();
   }, []);
 
   // ── Animate needle rotation smoothly ──────────────────────────────────────
@@ -97,10 +100,9 @@ export default function QiblaScreen() {
     }).start();
   }, [heading, qibla]);
 
-  // Interpolate the animated value to a degree string
-  const rotate = animAngle.interpolate({
-    inputRange:  [0, 360],
-    outputRange: ['0deg', '360deg'],
+  const spin = animAngle.interpolate({
+    inputRange:  [currentAngle.current - 360, currentAngle.current + 360],
+    outputRange: [`${currentAngle.current - 360}deg`, `${currentAngle.current + 360}deg`],
   });
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -126,6 +128,8 @@ export default function QiblaScreen() {
     );
   }
 
+  const needleRotation = qibla !== null ? (qibla - heading + 360) % 360 : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -136,33 +140,37 @@ export default function QiblaScreen() {
 
         {/* Compass */}
         <View style={styles.compassShell}>
-          {/* Static ring */}
+          {/* Compass face */}
           <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-            {/* Background */}
+            {/* Background (stays still) */}
             <Circle cx={CENTER} cy={CENTER} r={RADIUS} fill={Colors.card} />
-            {/* Outer glow ring */}
+            {/* Outer glow ring (stays still) */}
             <Circle
               cx={CENTER} cy={CENTER} r={RADIUS + 4}
               fill="none" stroke={Colors.primary} strokeWidth="1" opacity="0.3"
             />
-            {/* Tick marks */}
-            <Ticks />
-            {/* Cardinal letters */}
-            <SvgText x={CENTER} y={20} textAnchor="middle"
-              fill={Colors.primary} fontSize="16" fontWeight="bold">N</SvgText>
-            <SvgText x={SIZE - 14} y={CENTER + 5} textAnchor="middle"
-              fill={Colors.textSecondary} fontSize="14">E</SvgText>
-            <SvgText x={CENTER} y={SIZE - 8} textAnchor="middle"
-              fill={Colors.textSecondary} fontSize="14">S</SvgText>
-            <SvgText x={14} y={CENTER + 5} textAnchor="middle"
-              fill={Colors.textSecondary} fontSize="14">W</SvgText>
+            {/* Rotating dial: ticks + N/E/S/W spin opposite the device's
+                heading so whichever letter is at the top always matches the
+                real-world direction the top of the phone is pointing at —
+                exactly like the iOS Compass app. */}
+            <G rotation={-heading} origin={`${CENTER}, ${CENTER}`}>
+              <Ticks Colors={Colors} />
+              <SvgText x={CENTER} y={20} textAnchor="middle"
+                fill={Colors.primary} fontSize="16" fontWeight="bold">N</SvgText>
+              <SvgText x={SIZE - 14} y={CENTER + 5} textAnchor="middle"
+                fill={Colors.textSecondary} fontSize="14">E</SvgText>
+              <SvgText x={CENTER} y={SIZE - 8} textAnchor="middle"
+                fill={Colors.textSecondary} fontSize="14">S</SvgText>
+              <SvgText x={14} y={CENTER + 5} textAnchor="middle"
+                fill={Colors.textSecondary} fontSize="14">W</SvgText>
+            </G>
           </Svg>
 
           {/* Animated needle (separate Animated.View for perf) */}
           <Animated.View
             style={[
               styles.needleWrapper,
-              { transform: [{ rotate }] },
+              { transform: [{ rotate: `${needleRotation}deg` }] },
             ]}
           >
             <Svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
@@ -172,7 +180,7 @@ export default function QiblaScreen() {
                   d={`M ${CENTER} 36 L ${CENTER + 9} ${CENTER} L ${CENTER} ${CENTER + 16} L ${CENTER - 9} ${CENTER} Z`}
                   fill={Colors.primary}
                 />
-                {/* Gray tail */}
+                {/* Tail */}
                 <Path
                   d={`M ${CENTER} ${CENTER + 16} L ${CENTER + 9} ${CENTER} L ${CENTER} ${SIZE - 36} L ${CENTER - 9} ${CENTER} Z`}
                   fill={Colors.cardLight}
@@ -214,7 +222,7 @@ export default function QiblaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors) => StyleSheet.create({
   container: {
     flex:            1,
     backgroundColor: Colors.background,
