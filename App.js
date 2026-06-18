@@ -7,7 +7,7 @@ import * as Notifications from 'expo-notifications';
 
 import HomeScreen from './src/screens/HomeScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
-import StreakScreen from './src/screens/StreakScreen';
+import ToolsScreen from './src/screens/ToolsScreen';
 import QuranScreen from './src/screens/QuranScreen';
 import DuaScreen from './src/screens/DuaScreen';
 import { ThemeProvider, useTheme } from './src/constants/ThemeContext';
@@ -75,9 +75,9 @@ function Navigation() {
           options={{ tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }}
         />
         <Tab.Screen
-          name="Streak"
-          component={StreakScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🔥" color={color} /> }}
+          name="Tools"
+          component={ToolsScreen}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🛠️" color={color} /> }}
         />
         <Tab.Screen
           name="Quran"
