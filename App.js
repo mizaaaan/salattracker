@@ -1,10 +1,9 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Image } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
-
 import HomeScreen from './src/screens/HomeScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
 import ToolsScreen from './src/screens/ToolsScreen';
@@ -22,8 +21,17 @@ Notifications.setNotificationHandler({
 
 const Tab = createBottomTabNavigator();
 
-const TabIcon = ({ icon }) => (
-  <Text style={{ fontSize: 22 }}>{icon}</Text>
+// Custom image icon component
+const TabIcon = ({ source, color }) => (
+  <Image
+    source={source}
+    style={{
+      width: 26,
+      height: 26,
+      tintColor: color,
+      resizeMode: 'contain',
+    }}
+  />
 );
 
 function Navigation() {
@@ -67,27 +75,62 @@ function Navigation() {
         <Tab.Screen
           name="Prayer Times"
           component={HomeScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🕌" color={color} /> }}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <TabIcon
+                source={require('./assets/prayertime.png')}
+                color={color}
+              />
+            ),
+          }}
         />
         <Tab.Screen
           name="Qibla"
           component={QiblaScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <TabIcon
+                source={require('./assets/qibla.png')}
+                color={color}
+              />
+            ),
+          }}
         />
         <Tab.Screen
           name="Tools"
           component={ToolsScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🛠️" color={color} /> }}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <TabIcon
+                source={require('./assets/tools.png')}
+                color={color}
+              />
+            ),
+          }}
         />
         <Tab.Screen
           name="Quran"
           component={QuranScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="📖" color={color} /> }}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <TabIcon
+                source={require('./assets/quran.png')}
+                color={color}
+              />
+            ),
+          }}
         />
         <Tab.Screen
           name="Dua"
           component={DuaScreen}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🤲" color={color} /> }}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <TabIcon
+                source={require('./assets/dua.png')}
+                color={color}
+              />
+            ),
+          }}
         />
       </Tab.Navigator>
     </NavigationContainer>
