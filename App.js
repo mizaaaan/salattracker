@@ -8,9 +8,10 @@ import * as Notifications from 'expo-notifications';
 import HomeScreen from './src/screens/HomeScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
 import StreakScreen from './src/screens/StreakScreen';
+import QuranScreen from './src/screens/QuranScreen';
+import DuaScreen from './src/screens/DuaScreen';
 import { ThemeProvider, useTheme } from './src/constants/ThemeContext';
 
-// Handle notifications when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -28,8 +29,6 @@ const TabIcon = ({ icon }) => (
 function Navigation() {
   const { colors: Colors, isDark } = useTheme();
 
-  // Feed our palette into React Navigation so screen backgrounds,
-  // headers, and the native back-swipe edge all match too.
   const navTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
@@ -68,23 +67,27 @@ function Navigation() {
         <Tab.Screen
           name="Prayer Times"
           component={HomeScreen}
-          options={{
-            tabBarIcon: ({ color }) => <TabIcon icon="🕌" color={color} />,
-          }}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🕌" color={color} /> }}
         />
         <Tab.Screen
           name="Qibla"
           component={QiblaScreen}
-          options={{
-            tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} />,
-          }}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🧭" color={color} /> }}
         />
         <Tab.Screen
           name="Streak"
           component={StreakScreen}
-          options={{
-            tabBarIcon: ({ color }) => <TabIcon icon="🔥" color={color} />,
-          }}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🔥" color={color} /> }}
+        />
+        <Tab.Screen
+          name="Quran"
+          component={QuranScreen}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="📖" color={color} /> }}
+        />
+        <Tab.Screen
+          name="Dua"
+          component={DuaScreen}
+          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🤲" color={color} /> }}
         />
       </Tab.Navigator>
     </NavigationContainer>
