@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Image, Dimensions,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, {
+  Path, Circle, Rect,
+  Defs, LinearGradient as SvgGradient, Stop,
+} from 'react-native-svg';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - 32;
-const CARD_H = 420; // taller card for full-bleed feel
+const CARD_H = 380;
 
+// ── Prayer background images ─────────────────────────────────────────────────
 const PRAYER_IMAGES = {
   Fajr:    require('../../assets/prayers/fajr.png'),
   Sunrise: require('../../assets/prayers/sunrise.png'),
@@ -18,16 +22,48 @@ const PRAYER_IMAGES = {
   Isha:    require('../../assets/prayers/isha.png'),
 };
 
-// Lighter tint — image should breathe more
+// Mood tint per prayer — lighter opacity so the image shows through more
 const PRAYER_TINT = {
-  Fajr:    'rgba(5,  15,  40, 0.45)',
-  Sunrise: 'rgba(80, 30,   0, 0.40)',
-  Dhuhr:   'rgba(8,  28,  70, 0.38)',
-  Asr:     'rgba(90, 40,   0, 0.42)',
-  Maghrib: 'rgba(90, 10,   5, 0.45)',
-  Isha:    'rgba(5,   5,  15, 0.55)',
+  Fajr:    'rgba(5,  15,  55, 0.28)',
+  Sunrise: 'rgba(90, 35,   0, 0.22)',
+  Dhuhr:   'rgba(8,  28,  80, 0.20)',
+  Asr:     'rgba(90, 45,   0, 0.25)',
+  Maghrib: 'rgba(100, 10,  5, 0.28)',
+  Isha:    'rgba(5,   5,  18, 0.38)',
 };
 
+// ── Arc geometry constants ───────────────────────────────────────────────────
+const ARC_W   = CARD_W - 48;
+const ARC_H   = 110;
+const PEAK_Y  = 16;
+const BASE_Y  = ARC_H - 12;
+const LEFT_X  = 14;
+const RIGHT_X = ARC_W - 14;
+const CTRL_X  = ARC_W / 2;
+
+// Quadratic bezier point at t (0=left end, 0.5=peak, 1=right end)
+function bezierAt(t) {
+  const x = (1-t)*(1-t)*LEFT_X  + 2*(1-t)*t*CTRL_X + t*t*RIGHT_X;
+  const y = (1-t)*(1-t)*BASE_Y  + 2*(1-t)*t*PEAK_Y  + t*t*BASE_Y;
+  return { x, y };
+}
+
+// Sun's t value: 0=sunrise (left), 0.5=noon (peak/top), 1=sunset (right)
+function calcSunT(sunriseTime, sunsetTime) {
+  const now = new Date();
+
+  const rise = (sunriseTime instanceof Date) ? sunriseTime : (() => {
+    const d = new Date(); d.setHours(6, 0, 0, 0); return d;
+  })();
+  const set = (sunsetTime instanceof Date) ? sunsetTime : (() => {
+    const d = new Date(); d.setHours(19, 0, 0, 0); return d;
+  })();
+
+  const t = (now - rise) / (set - rise);
+  return Math.max(0.03, Math.min(0.97, t));
+}
+
+// ── Countdown to natural language ────────────────────────────────────────────
 function naturalCountdown(cd) {
   const [h, m, s] = (cd || '00:00:00').split(':').map(Number);
   if (h > 0 && m > 0) return `${h} hour${h !== 1 ? 's' : ''} ${m} minute${m !== 1 ? 's' : ''}`;
@@ -36,22 +72,64 @@ function naturalCountdown(cd) {
   return `${s} second${s !== 1 ? 's' : ''}`;
 }
 
-function SemiArc({ color = 'rgba(255,255,255,0.65)' }) {
-  const W  = CARD_W - 60;
-  const H  = 80;
-  const Y0 = 12;
-  const YB = H - 12;
-  const d  = `M 10 ${YB} Q ${W / 2} ${Y0} ${W - 10} ${YB}`;
+// ── SVG gradient overlay: transparent top → dark bottom ─────────────────────
+function GradientOverlay() {
   return (
-    <Svg width={W} height={H}>
-      <Path d={d} fill="none" stroke={color} strokeWidth={1.8} />
-      <Circle cx={W / 2} cy={Y0 + 1} r={5} fill="rgba(255,255,255,0.90)" />
-      <Circle cx={10}     cy={YB}     r={5} fill="rgba(255,255,255,0.50)" />
-      <Circle cx={W - 10} cy={YB}     r={5} fill="rgba(255,255,255,0.50)" />
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width={CARD_W}
+      height={CARD_H}
+      preserveAspectRatio="none"
+    >
+      <Defs>
+        <SvgGradient id="bannerFade" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0"    stopColor="#000" stopOpacity="0.04" />
+          <Stop offset="0.30" stopColor="#000" stopOpacity="0.08" />
+          <Stop offset="0.58" stopColor="#000" stopOpacity="0.40" />
+          <Stop offset="1"    stopColor="#000" stopOpacity="0.74" />
+        </SvgGradient>
+      </Defs>
+      <Rect x="0" y="0" width={CARD_W} height={CARD_H} fill="url(#bannerFade)" />
     </Svg>
   );
 }
 
+// ── Arc + layered golden sun ─────────────────────────────────────────────────
+function SunArc({ sunT }) {
+  const sun = bezierAt(sunT);
+  const d   = `M ${LEFT_X} ${BASE_Y} Q ${CTRL_X} ${PEAK_Y} ${RIGHT_X} ${BASE_Y}`;
+
+  return (
+    <Svg width={ARC_W} height={ARC_H}>
+      {/* Arc line */}
+      <Path
+        d={d}
+        fill="none"
+        stroke="rgba(255,255,255,0.48)"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+
+      {/* End-point dots */}
+      <Circle cx={LEFT_X}  cy={BASE_Y} r={4} fill="rgba(255,255,255,0.38)" />
+      <Circle cx={RIGHT_X} cy={BASE_Y} r={4} fill="rgba(255,255,255,0.38)" />
+
+      {/* ── Layered golden sun ── */}
+      {/* Outer glow */}
+      <Circle cx={sun.x} cy={sun.y} r={19} fill="rgba(255,200,0,0.16)" />
+      {/* Mid glow */}
+      <Circle cx={sun.x} cy={sun.y} r={13} fill="rgba(255,195,0,0.28)" />
+      {/* Sun body */}
+      <Circle cx={sun.x} cy={sun.y} r={9}  fill="#FFC107" />
+      {/* Bright inner */}
+      <Circle cx={sun.x} cy={sun.y} r={5.5} fill="#FFE566" />
+      {/* White core */}
+      <Circle cx={sun.x} cy={sun.y} r={2.5} fill="#FFFDE7" />
+    </Svg>
+  );
+}
+
+// ── Page indicator dots ───────────────────────────────────────────────────────
 const TRACKABLE = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
 function PageDots({ prayerName }) {
@@ -65,77 +143,101 @@ function PageDots({ prayerName }) {
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+/**
+ * Props:
+ *   name          – 'Fajr' | 'Dhuhr' | 'Asr' | 'Maghrib' | 'Isha'
+ *   time          – pre-formatted 12hr string e.g. '3:15 PM'   (kept as-is)
+ *   countdown     – 'HH:MM:SS' string
+ *   hijriDate     – e.g. '3 Muharram 1448 AH'
+ *   location      – city name string, defaults to 'Local'
+ *   sunriseTime   – Date object (Sunrise prayer) for sun position on arc
+ *   maghribTime   – Date object (Maghrib prayer) used as sunset proxy
+ *   onLocationPress – () => void
+ */
 export default function NextPrayerBanner({
   name,
   time,
-  endTime,
   countdown,
-  meta,
-  onLocationPress,
   hijriDate,
-  gregorianDate,
+  location,
+  sunriseTime,
+  maghribTime,
+  onLocationPress,
 }) {
-  const bgImage = PRAYER_IMAGES[name] ?? PRAYER_IMAGES.Fajr;
-  const tint    = PRAYER_TINT[name]   ?? PRAYER_TINT.Fajr;
-  const timeStr = time ? time.toLowerCase() : '--:--';
-  const endStr  = endTime ? endTime.toLowerCase() : '—';
+  const bgImage  = PRAYER_IMAGES[name] ?? PRAYER_IMAGES.Fajr;
+  const tint     = PRAYER_TINT[name]   ?? PRAYER_TINT.Fajr;
+  const locLabel = location || 'Local';
+
+  // Recompute sun position once per minute
+  const [sunT, setSunT] = useState(() => calcSunT(sunriseTime, maghribTime));
+  useEffect(() => {
+    setSunT(calcSunT(sunriseTime, maghribTime));
+    const id = setInterval(
+      () => setSunT(calcSunT(sunriseTime, maghribTime)),
+      60_000
+    );
+    return () => clearInterval(id);
+  }, [sunriseTime, maghribTime]);
 
   return (
     <View style={styles.shadow}>
       <View style={styles.card}>
 
-        {/* ── Full-bleed background image ── */}
+        {/* Background image — landscape/cover fill */}
         <Image
           source={bgImage}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
 
-        {/* ── Flat mood tint ── */}
+        {/* Mood colour tint (lighter than before) */}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} />
 
-        {/* ── Bottom gradient for text readability ── */}
-        {/* Pure CSS gradient via nested Views (no LinearGradient dep needed) */}
-        <View style={styles.bottomGradient} />
+        {/* SVG gradient: transparent top → dark bottom */}
+        <GradientOverlay />
 
-        {/* ══ ALL CONTENT OVERLAID ══════════════════════════════════════ */}
+        {/* ══ CONTENT ══════════════════════════════════════════════════════ */}
         <View style={styles.overlay}>
 
-          {/* Top row */}
+          {/* Top bar */}
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.localBtn} onPress={onLocationPress} activeOpacity={0.75}>
-              <Text style={styles.localIcon}>🌐</Text>
-              <Text style={styles.localLabel}>Local</Text>
+            <TouchableOpacity
+              style={styles.locationPill}
+              onPress={onLocationPress}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.locationIcon}>🌐</Text>
+              <Text style={styles.locationLabel}>{locLabel}</Text>
             </TouchableOpacity>
             <Text style={styles.hijriDate}>{hijriDate}</Text>
           </View>
 
-          {/* Center spacer — pushes content down */}
+          {/* Push prayer info to lower half */}
           <View style={{ flex: 1 }} />
 
           {/* Prayer name */}
           <Text style={styles.prayerName}>{name}</Text>
 
-          {/* Big time */}
-          <Text style={styles.bigTime}>{timeStr}</Text>
+          {/* 12hr time — big focal number */}
+          <Text style={styles.bigTime}>{time}</Text>
 
           {/* Countdown */}
-          <Text style={styles.countdownText}>
+          <Text style={styles.countdown}>
             will start in {naturalCountdown(countdown)}
           </Text>
 
-          {/* Arc */}
+          {/* Arc with moving golden sun */}
           <View style={styles.arcWrap}>
-            <SemiArc />
+            <SunArc sunT={sunT} />
           </View>
 
           {/* Page dots */}
           <PageDots prayerName={name} />
 
-          {/* Bottom padding */}
-          <View style={{ height: 16 }} />
-
+          <View style={{ height: 14 }} />
         </View>
+
       </View>
     </View>
   );
@@ -144,103 +246,91 @@ export default function NextPrayerBanner({
 const styles = StyleSheet.create({
   shadow: {
     marginHorizontal: 16,
-    marginVertical:   12,
+    marginVertical:   10,
     borderRadius:     24,
     shadowColor:      '#000',
-    shadowOffset:     { width: 0, height: 12 },
-    shadowOpacity:    0.55,
-    shadowRadius:     24,
-    elevation:        16,
+    shadowOffset:     { width: 0, height: 10 },
+    shadowOpacity:    0.45,
+    shadowRadius:     20,
+    elevation:        14,
   },
   card: {
     borderRadius: 24,
     overflow:     'hidden',
     height:       CARD_H,
   },
-
-  // Dark fade at the bottom half of the card
-  bottomGradient: {
-    position: 'absolute',
-    left:     0,
-    right:    0,
-    bottom:   0,
-    height:   CARD_H * 0.72,  // covers lower 72% of card
-    // Simulated gradient: four stacked semi-transparent layers
-    backgroundColor: 'rgba(0,0,0,0.52)',
-  },
-
   overlay: {
     ...StyleSheet.absoluteFillObject,
     paddingHorizontal: 20,
-    paddingTop:        20,
+    paddingTop:        18,
     alignItems:        'center',
   },
 
-  // Top row
+  // Top bar
   topRow: {
     flexDirection:  'row',
     justifyContent: 'space-between',
     alignItems:     'center',
     width:          '100%',
   },
-  localBtn: {
+  locationPill: {
     flexDirection:     'row',
     alignItems:        'center',
     gap:               6,
     backgroundColor:   'rgba(255,255,255,0.18)',
     borderRadius:      20,
     paddingHorizontal: 12,
-    paddingVertical:   7,
+    paddingVertical:   6,
     borderWidth:       1,
-    borderColor:       'rgba(255,255,255,0.32)',
+    borderColor:       'rgba(255,255,255,0.28)',
   },
-  localIcon:  { fontSize: 14 },
-  localLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  hijriDate:  { color: '#fff', fontSize: 14, fontWeight: '700' },
+  locationIcon:  { fontSize: 14 },
+  locationLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  hijriDate:     { color: '#fff', fontSize: 14, fontWeight: '700' },
 
-  // Prayer name
+  // Prayer name (spaced, uppercase)
   prayerName: {
-    color:         'rgba(255,255,255,0.90)',
-    fontSize:      20,
-    fontWeight:    '600',
-    letterSpacing: 1.2,
-    marginBottom:  6,
+    color:         'rgba(255,255,255,0.88)',
+    fontSize:      17,
+    fontWeight:    '500',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom:  2,
   },
 
-  // Big focal time
+  // Big 12hr time — kept in 12hr as requested
   bigTime: {
     color:            '#fff',
-    fontSize:         62,
+    fontSize:         58,
     fontWeight:       '800',
-    letterSpacing:    1.5,
-    textShadowColor:  'rgba(0,0,0,0.5)',
+    letterSpacing:    1,
+    lineHeight:       66,
+    textShadowColor:  'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
-    marginBottom:     6,
+    textShadowRadius: 8,
+    marginBottom:     2,
   },
 
-  // Countdown
-  countdownText: {
-    color:        'rgba(255,255,255,0.80)',
-    fontSize:     14,
-    marginBottom: 2,
+  countdown: {
+    color:         'rgba(255,255,255,0.75)',
+    fontSize:      14,
+    letterSpacing: 0.2,
+    marginBottom:  2,
   },
 
-  // Arc
   arcWrap: {
     alignItems: 'center',
     width:      '100%',
-    marginTop:  4,
+    marginTop:  8,
   },
 
-  // Page dots
   dotsRow: {
-    flexDirection:  'row',
-    gap:            6,
-    justifyContent: 'center',
-    marginTop:      4,
+    flexDirection: 'row',
+    gap:           6,
+    justifyContent:'center',
+    marginTop:     2,
   },
   dot:    { height: 6, borderRadius: 3 },
-  dotOn:  { width: 20, backgroundColor: 'rgba(255,255,255,0.92)' },
-  dotOff: { width: 6,  backgroundColor: 'rgba(255,255,255,0.35)' },
+  dotOn:  { width: 20, backgroundColor: 'rgba(255,255,255,0.90)' },
+  dotOff: { width:  6, backgroundColor: 'rgba(255,255,255,0.28)' },
 });
