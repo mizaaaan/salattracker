@@ -9,10 +9,12 @@ import Svg, {
 } from 'react-native-svg';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = SCREEN_W - 32;
-const CARD_H = 440;
 
-// ── Prayer background images ─────────────────────────────────────────────────
+// ── Landscape card dimensions ─────────────────────────────────────────────────
+const CARD_W = SCREEN_W - 32;           // full width minus small margins
+const CARD_H = Math.round(CARD_W * 0.62); // ~62% of width → landscape 16:10 feel
+
+// ── Prayer background images ──────────────────────────────────────────────────
 const PRAYER_IMAGES = {
   Fajr:    require('../../assets/prayers/fajr.png'),
   Sunrise: require('../../assets/prayers/sunrise.png'),
@@ -31,16 +33,16 @@ const PRAYER_TINT = {
   Isha:    'rgba(5,   5,  18, 0.38)',
 };
 
-// ── Arc geometry constants ───────────────────────────────────────────────────
-const ARC_W   = CARD_W - 40;
+// ── Arc geometry — flat ellipse to fit landscape card ─────────────────────────
+const ARC_W   = CARD_W - 48;
 const LEFT_X  = 10;
 const RIGHT_X = ARC_W - 10;
 
-const ARC_RX  = (RIGHT_X - LEFT_X) / 2;
-const ARC_RY  = ARC_RX;
+const ARC_RX  = (RIGHT_X - LEFT_X) / 2;   // wide horizontal radius
+const ARC_RY  = Math.round(ARC_RX * 0.52); // flattened: only 52% of RX height
 const ARC_CX  = (LEFT_X + RIGHT_X) / 2;
-const BASE_Y  = ARC_RY + 12;
-const ARC_H   = BASE_Y + 12;
+const BASE_Y  = ARC_RY + 8;
+const ARC_H   = BASE_Y + 8;
 
 function arcPointAt(t) {
   const theta = Math.PI * (1 - t);
@@ -50,25 +52,25 @@ function arcPointAt(t) {
 }
 
 function calcSunT(sunriseTime, sunsetTime) {
-  const now = new Date();
+  const now  = new Date();
   const rise = (sunriseTime instanceof Date) ? sunriseTime : (() => {
     const d = new Date(); d.setHours(6, 0, 0, 0); return d;
   })();
-  const set = (sunsetTime instanceof Date) ? sunsetTime : (() => {
+  const set  = (sunsetTime  instanceof Date) ? sunsetTime  : (() => {
     const d = new Date(); d.setHours(19, 0, 0, 0); return d;
   })();
-  const t = (now - rise) / (set - rise);
-  return Math.max(0.03, Math.min(0.97, t));
+  return Math.max(0.03, Math.min(0.97, (now - rise) / (set - rise)));
 }
 
 function naturalCountdown(cd) {
   const [h, m, s] = (cd || '00:00:00').split(':').map(Number);
-  if (h > 0 && m > 0) return `${h} hour${h !== 1 ? 's' : ''} ${m} minute${m !== 1 ? 's' : ''}`;
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
   if (h > 0)           return `${h} hour${h !== 1 ? 's' : ''}`;
   if (m > 0)           return `${m} minute${m !== 1 ? 's' : ''}`;
-  return `${s} second${s !== 1 ? 's' : ''}`;
+  return `${s}s`;
 }
 
+// ── Gradient overlay ──────────────────────────────────────────────────────────
 function GradientOverlay() {
   return (
     <Svg
@@ -79,10 +81,10 @@ function GradientOverlay() {
     >
       <Defs>
         <SvgGradient id="bannerFade" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0"    stopColor="#000" stopOpacity="0.04" />
-          <Stop offset="0.30" stopColor="#000" stopOpacity="0.08" />
-          <Stop offset="0.58" stopColor="#000" stopOpacity="0.40" />
-          <Stop offset="1"    stopColor="#000" stopOpacity="0.74" />
+          <Stop offset="0"    stopColor="#000" stopOpacity="0.00" />
+          <Stop offset="0.40" stopColor="#000" stopOpacity="0.10" />
+          <Stop offset="0.70" stopColor="#000" stopOpacity="0.45" />
+          <Stop offset="1"    stopColor="#000" stopOpacity="0.72" />
         </SvgGradient>
       </Defs>
       <Rect x="0" y="0" width={CARD_W} height={CARD_H} fill="url(#bannerFade)" />
@@ -90,33 +92,36 @@ function GradientOverlay() {
   );
 }
 
+// ── Flat ellipse arc + golden sun ─────────────────────────────────────────────
 function SunArc({ sunT }) {
   const sun = arcPointAt(sunT);
+  // Large-arc=1, sweep=1 → correct upper ellipse arc
   const d = `M ${LEFT_X} ${BASE_Y} A ${ARC_RX} ${ARC_RY} 0 0 1 ${RIGHT_X} ${BASE_Y}`;
 
   return (
     <Svg width={ARC_W} height={ARC_H}>
       {/* Glow layers */}
-      <Path d={d} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={10} strokeLinecap="round" />
-      <Path d={d} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={5}  strokeLinecap="round" />
-      <Path d={d} fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth={2.2} strokeLinecap="round" />
+      <Path d={d} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={10} strokeLinecap="round" />
+      <Path d={d} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={5}  strokeLinecap="round" />
+      <Path d={d} fill="none" stroke="rgba(255,255,255,0.90)" strokeWidth={2}  strokeLinecap="round" />
 
       {/* Endpoint dots */}
-      <Circle cx={LEFT_X}  cy={BASE_Y} r={7}   fill="rgba(255,255,255,0.18)" />
-      <Circle cx={LEFT_X}  cy={BASE_Y} r={4.5} fill="rgba(255,255,255,0.75)" />
-      <Circle cx={RIGHT_X} cy={BASE_Y} r={7}   fill="rgba(255,255,255,0.18)" />
-      <Circle cx={RIGHT_X} cy={BASE_Y} r={4.5} fill="rgba(255,255,255,0.75)" />
+      <Circle cx={LEFT_X}  cy={BASE_Y} r={6}   fill="rgba(255,255,255,0.18)" />
+      <Circle cx={LEFT_X}  cy={BASE_Y} r={4}   fill="rgba(255,255,255,0.75)" />
+      <Circle cx={RIGHT_X} cy={BASE_Y} r={6}   fill="rgba(255,255,255,0.18)" />
+      <Circle cx={RIGHT_X} cy={BASE_Y} r={4}   fill="rgba(255,255,255,0.75)" />
 
       {/* Layered golden sun */}
-      <Circle cx={sun.x} cy={sun.y} r={22}  fill="rgba(255,200,0,0.12)" />
-      <Circle cx={sun.x} cy={sun.y} r={15}  fill="rgba(255,195,0,0.24)" />
-      <Circle cx={sun.x} cy={sun.y} r={10}  fill="#FFC107" />
-      <Circle cx={sun.x} cy={sun.y} r={6.5} fill="#FFE566" />
-      <Circle cx={sun.x} cy={sun.y} r={3}   fill="#FFFDE7" />
+      <Circle cx={sun.x} cy={sun.y} r={18}  fill="rgba(255,200,0,0.12)" />
+      <Circle cx={sun.x} cy={sun.y} r={12}  fill="rgba(255,195,0,0.24)" />
+      <Circle cx={sun.x} cy={sun.y} r={8}   fill="#FFC107" />
+      <Circle cx={sun.x} cy={sun.y} r={5}   fill="#FFE566" />
+      <Circle cx={sun.x} cy={sun.y} r={2.5} fill="#FFFDE7" />
     </Svg>
   );
 }
 
+// ── Page dots ─────────────────────────────────────────────────────────────────
 const TRACKABLE = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
 function PageDots({ prayerName }) {
@@ -159,7 +164,7 @@ export default function NextPrayerBanner({
     <View style={styles.shadow}>
       <View style={styles.card}>
 
-        {/* Background image */}
+        {/* Background image — landscape fill */}
         <Image
           source={bgImage}
           style={StyleSheet.absoluteFill}
@@ -169,7 +174,7 @@ export default function NextPrayerBanner({
         {/* Mood tint */}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} />
 
-        {/* Gradient overlay */}
+        {/* Gradient */}
         <GradientOverlay />
 
         {/* ══ CONTENT ══════════════════════════════════════════════════════ */}
@@ -188,20 +193,18 @@ export default function NextPrayerBanner({
             <Text style={styles.hijriDate}>{hijriDate}</Text>
           </View>
 
-          {/* Spacer — pushes arc block to lower half */}
+          {/* Small spacer */}
           <View style={{ flex: 1 }} />
 
-          {/* ── Arc + Info block ─────────────────────────────────────────── */}
-          {/* The arc SVG and prayer text share the same container.           */}
-          {/* arcInfoOverlay is absolutely positioned INSIDE the arc.         */}
+          {/* ── Arc + Info block ──────────────────────────────────────────── */}
           <View style={styles.arcContainer}>
 
-            {/* Arc SVG drawn first (behind the text) */}
+            {/* Flat arc SVG */}
             <View style={styles.arcWrap}>
               <SunArc sunT={sunT} />
             </View>
 
-            {/* Prayer info sits inside the arc via absolute positioning */}
+            {/* Prayer info INSIDE the arc — absolutely positioned */}
             <View style={styles.arcInfoOverlay}>
               <Text style={styles.prayerName}>{name}</Text>
               <Text style={styles.bigTime}>{time}</Text>
@@ -211,12 +214,11 @@ export default function NextPrayerBanner({
             </View>
 
           </View>
-          {/* ─────────────────────────────────────────────────────────────── */}
 
           {/* Page dots */}
           <PageDots prayerName={name} />
 
-          <View style={{ height: 14 }} />
+          <View style={{ height: 10 }} />
         </View>
 
       </View>
@@ -228,22 +230,22 @@ const styles = StyleSheet.create({
   shadow: {
     marginHorizontal: 16,
     marginVertical:   10,
-    borderRadius:     24,
+    borderRadius:     20,
     shadowColor:      '#000',
-    shadowOffset:     { width: 0, height: 10 },
-    shadowOpacity:    0.45,
-    shadowRadius:     20,
-    elevation:        14,
+    shadowOffset:     { width: 0, height: 8 },
+    shadowOpacity:    0.40,
+    shadowRadius:     16,
+    elevation:        12,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 20,
     overflow:     'hidden',
-    height:       CARD_H,
+    height:       CARD_H,   // ← landscape height (62% of card width)
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    paddingHorizontal: 20,
-    paddingTop:        18,
+    paddingHorizontal: 16,
+    paddingTop:        14,
     alignItems:        'center',
   },
 
@@ -257,22 +259,22 @@ const styles = StyleSheet.create({
   locationPill: {
     flexDirection:     'row',
     alignItems:        'center',
-    gap:               6,
+    gap:               5,
     backgroundColor:   'rgba(255,255,255,0.18)',
     borderRadius:      20,
-    paddingHorizontal: 12,
-    paddingVertical:   6,
+    paddingHorizontal: 10,
+    paddingVertical:   5,
     borderWidth:       1,
     borderColor:       'rgba(255,255,255,0.28)',
   },
-  locationIcon:  { fontSize: 14 },
-  locationLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  hijriDate:     { color: '#fff', fontSize: 14, fontWeight: '700' },
+  locationIcon:  { fontSize: 12 },
+  locationLabel: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  hijriDate:     { color: '#fff', fontSize: 12, fontWeight: '700' },
 
-  // ── Arc container: holds both the SVG and the text overlay ──────────────
+  // Arc container
   arcContainer: {
-    width:    '100%',
-    position: 'relative',     // anchor for the absolute text overlay
+    width:      '100%',
+    position:   'relative',
     alignItems: 'center',
   },
   arcWrap: {
@@ -280,54 +282,53 @@ const styles = StyleSheet.create({
     width:      '100%',
   },
 
-  // Prayer info absolutely placed INSIDE the arc
+  // Prayer info INSIDE arc — absolutely placed
   arcInfoOverlay: {
-    position: 'absolute',
-    bottom:   22,             // sits above the arc baseline, inside the dome
-    left:     0,
-    right:    0,
+    position:   'absolute',
+    bottom:     16,
+    left:       0,
+    right:      0,
     alignItems: 'center',
   },
 
   // Prayer name
   prayerName: {
     color:         'rgba(255,255,255,0.88)',
-    fontSize:      17,
+    fontSize:      13,
     fontWeight:    '500',
-    letterSpacing: 2,
+    letterSpacing: 2.5,
     textTransform: 'uppercase',
-    marginBottom:  2,
+    marginBottom:  1,
   },
 
   // Big time
   bigTime: {
     color:            '#fff',
-    fontSize:         40,
+    fontSize:         32,
     fontWeight:       '700',
     letterSpacing:    1,
-    lineHeight:       46,
-    textShadowColor:  'rgba(0,0,0,0.35)',
+    lineHeight:       38,
+    textShadowColor:  'rgba(0,0,0,0.4)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    marginBottom:     2,
+    textShadowRadius: 6,
+    marginBottom:     1,
   },
 
   // Countdown
   countdown: {
     color:         'rgba(255,255,255,0.75)',
-    fontSize:      14,
+    fontSize:      12,
     letterSpacing: 0.2,
-    marginBottom:  2,
   },
 
   // Page dots
   dotsRow: {
     flexDirection:  'row',
-    gap:            6,
+    gap:            5,
     justifyContent: 'center',
     marginTop:      6,
   },
-  dot:    { height: 6, borderRadius: 3 },
-  dotOn:  { width: 20, backgroundColor: 'rgba(255,255,255,0.90)' },
-  dotOff: { width:  6, backgroundColor: 'rgba(255,255,255,0.28)' },
+  dot:    { height: 5, borderRadius: 3 },
+  dotOn:  { width: 18, backgroundColor: 'rgba(255,255,255,0.90)' },
+  dotOff: { width:  5, backgroundColor: 'rgba(255,255,255,0.28)' },
 });
