@@ -10,7 +10,7 @@ import Svg, {
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = SCREEN_W - 32;
-const CARD_H = 380;
+const CARD_H = 440;
 
 // ── Prayer background images ─────────────────────────────────────────────────
 const PRAYER_IMAGES = {
@@ -39,7 +39,7 @@ const RIGHT_X = ARC_W - 10;
 
 // True semi-ellipse: rx = half the width, ry controls height of curve
 const ARC_RX  = (RIGHT_X - LEFT_X) / 2;   // horizontal radius
-const ARC_RY  = ARC_RX * 0.62;            // vertical radius  (0.62 ≈ nice half-circle feel)
+const ARC_RY  = ARC_RX;                   // vertical radius = horizontal → perfect semicircle
 const ARC_CX  = (LEFT_X + RIGHT_X) / 2;   // ellipse centre X
 const BASE_Y  = ARC_RY + 12;              // y of both endpoints
 const ARC_H   = BASE_Y + 12;              // SVG canvas height
@@ -223,21 +223,21 @@ export default function NextPrayerBanner({
           {/* Push prayer info to lower half */}
           <View style={{ flex: 1 }} />
 
+          {/* Arc with moving golden sun — hero element */}
+          <View style={styles.arcWrap}>
+            <SunArc sunT={sunT} />
+          </View>
+
           {/* Prayer name */}
           <Text style={styles.prayerName}>{name}</Text>
 
-          {/* 12hr time — big focal number */}
+          {/* 12hr time — smaller, sits under the arc */}
           <Text style={styles.bigTime}>{time}</Text>
 
           {/* Countdown */}
           <Text style={styles.countdown}>
             will start in {naturalCountdown(countdown)}
           </Text>
-
-          {/* Arc with moving golden sun */}
-          <View style={styles.arcWrap}>
-            <SunArc sunT={sunT} />
-          </View>
 
           {/* Page dots */}
           <PageDots prayerName={name} />
@@ -308,10 +308,10 @@ const styles = StyleSheet.create({
   // Big 12hr time — kept in 12hr as requested
   bigTime: {
     color:            '#fff',
-    fontSize:         58,
-    fontWeight:       '800',
+    fontSize:         40,
+    fontWeight:       '700',
     letterSpacing:    1,
-    lineHeight:       66,
+    lineHeight:       46,
     textShadowColor:  'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
